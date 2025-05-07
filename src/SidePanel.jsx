@@ -20,7 +20,7 @@ function SidePanel({ isOpen, setOpen, chosenHospital, setChosenHospital, chosenH
         transition: "width 0.3s ease",
         backgroundColor: "#fff",
         width: isOpen ? (screenResolution < 600 ? "85%" : "30%") : "0%",
-        height: "100vh",
+        // height: "30vh",
         position: "fixed",
         top: 0,
         right: 0,
