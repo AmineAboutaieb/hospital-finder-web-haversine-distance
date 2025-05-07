@@ -1,0 +1,222 @@
+import React, { useEffect, useRef, useState } from "react";
+import { MapContainer, Marker, TileLayer, Popup, useMap, LayerGroup, Circle } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import { MdGpsFixed } from "react-icons/md";
+
+import { FaHospital } from "react-icons/fa";
+import { renderToStaticMarkup } from "react-dom/server";
+import L from "leaflet";
+import { PiGpsFill, PiGpsFixDuotone } from "react-icons/pi";
+import HarvestineUtils from "./utils/Harvestine";
+import Search from "./Search";
+import SidePanel from "./SidePanel";
+
+// Convert the React icon to static HTML
+const hospitalIconHTML = renderToStaticMarkup(<FaHospital style={{ color: "green", fontSize: "26px" }} />);
+
+const hospitalIcon = L.divIcon({
+  html: hospitalIconHTML,
+  className: "", // No default Leaflet styles
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
+// Convert the React icon to static HTML
+const MeIconHTML = renderToStaticMarkup(<PiGpsFill style={{ color: "#2323FF", fontSize: "26px" }} />);
+
+const MeIcon = L.divIcon({
+  html: MeIconHTML,
+  className: "", // No default Leaflet styles
+  iconSize: [28, 28],
+  iconAnchor: [17, 17],
+});
+
+const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, chosenHospitalDistance, setChosenHospitalDistance }) => {
+  const mapRef = useRef(null);
+  const latitude = 33.9693338;
+  const longitude = -6.9396652;
+
+  const [target, setTarget] = useState(null);
+  const [hospitalsToShow, setHospitalsToShow] = useState([]);
+  const [menuFocused, setMenuFocused] = useState(false);
+
+  useEffect(() => {
+    console.log("menuFocused", menuFocused);
+  }, [menuFocused]);
+
+  const getGeoPosition = async () => {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve(position?.coords);
+        },
+        (error) => {
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true, // Try to get GPS-level accuracy if available
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  };
+
+  const getPositionAndCalcHospitalsDistanceOnMount = async () => {
+    try {
+      let pos = await getGeoPosition();
+      console.log(pos);
+      let posData = { position: [pos?.latitude, pos?.longitude] };
+      setTarget(posData);
+      if (posData?.position?.length > 0 && hospitals?.length > 0) {
+        console.log(posData, hospitals);
+
+        let sortedHospitals = compareHospitalsWithMe(posData, hospitals);
+        let closestHospital = sortedHospitals[0];
+        setHospitalsToShow([closestHospital]);
+        fitTwoPoints(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
+        setChosenHospital(closestHospital);
+        let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
+        setChosenHospitalDistance(distance);
+        setOpen(true);
+      }
+    } catch (e) {
+      console.log(e);
+      alert("Veuillez Activer la Localisation et rafraichir la page !");
+    }
+  };
+
+  const getPositionAndCalcHospitalsDistanceOnSearchClick = async (hsp) => {
+    try {
+      let pos = await getGeoPosition();
+      console.log(pos);
+      let posData = { position: [pos?.latitude, pos?.longitude] };
+      setTarget(posData);
+      if (posData?.position?.length > 0) {
+        console.log("fit two points", pos?.latitude, pos?.longitude, hsp);
+        setHospitalsToShow([hsp]);
+        fitTwoPoints(pos?.latitude, pos?.longitude, hsp.lat, hsp.long);
+        let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
+        setChosenHospitalDistance(distance);
+      }
+    } catch (e) {
+      console.log(e);
+      alert("Veuillez Activer la Localisation et rafraichir la page !");
+    }
+  };
+
+  const compareHospitalsWithMe = (mePos, hospitalsPos) => {
+    let res = HarvestineUtils.sortByDistance({ lat: mePos?.position?.[0], long: mePos?.position?.[1] }, hospitalsPos);
+    return res;
+  };
+  const panAndZoom = (lat, long, zoom) => {
+    const map = mapRef.current;
+    if (map) {
+      map.setView([lat, long], zoom); // or map.flyTo(...)
+    }
+  };
+
+  const fitTwoPoints = (lat1, long1, lat2, long2) => {
+    const map = mapRef.current;
+    console.log("from fitTwoPoints", map);
+    if (map) {
+      const bounds = L.latLngBounds([
+        [lat1, long1],
+        [lat2, long2],
+      ]);
+      map.fitBounds(bounds, {
+        padding: [30, 30], // optional padding
+        animate: true, // smooth transition
+      });
+      map.eachLayer((layer) => {
+        if (layer instanceof L.Polyline) {
+          map.removeLayer(layer);
+        }
+      });
+
+      // Create the line using Leaflet's native polyline method
+      const line = L.polyline(
+        [
+          [lat1, long1],
+          [lat2, long2],
+        ],
+        {
+          color: "red",
+          weight: 4,
+        }
+      );
+
+      // Add the line to the map
+      line.addTo(map);
+    }
+  };
+
+  useEffect(() => {
+    getPositionAndCalcHospitalsDistanceOnMount();
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) {
+      // Attach event listeners
+      map.on("click", () => {
+        console.log("removing focus");
+        setMenuFocused(false);
+      });
+      map.on("dragstart", () => {
+        console.log("removing focus");
+        setMenuFocused(false);
+      });
+
+      // Cleanup on unmount
+      return () => {
+        map.off("click");
+        map.off("dragstart");
+      };
+    }
+  }, [mapRef.current]); // Dependency to ensure it runs when mapRef updates
+
+  return (
+    <MapContainer
+      center={[latitude, longitude]}
+      zoom={12}
+      ref={mapRef}
+      style={{ height: "100vh", overflow: "hidden" }}
+      maxBounds={[
+        [33.187949, -7.117014],
+        [35.010163, -5.304844],
+      ]}
+      maxBoundsViscosity={1.0}
+    >
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" minZoom={10} />
+
+      {target && (
+        <Marker position={target?.position} icon={MeIcon}>
+          <Popup>Moi</Popup>
+        </Marker>
+      )}
+
+      {hospitalsToShow?.length > 0 &&
+        hospitalsToShow?.map((hsp) => {
+          return (
+            <Marker key={hsp?.id} position={[hsp?.lat, hsp?.long]} icon={hospitalIcon}>
+              <Popup>{hsp?.name}</Popup>
+            </Marker>
+          );
+        })}
+
+      <Search
+        hospitals={hospitals}
+        setOpen={setOpen}
+        chosenHospital={chosenHospital}
+        setChosenHospital={setChosenHospital}
+        getPositionAndCalcHospitalsDistanceOnSearchClick={getPositionAndCalcHospitalsDistanceOnSearchClick}
+        menuFocused={menuFocused}
+        setMenuFocused={setMenuFocused}
+      />
+      <SidePanel isOpen={isOpen} setOpen={setOpen} chosenHospital={chosenHospital} setChosenHospital={setChosenHospital} chosenHospitalDistance={chosenHospitalDistance} />
+    </MapContainer>
+  );
+};
+
+export default Map;
