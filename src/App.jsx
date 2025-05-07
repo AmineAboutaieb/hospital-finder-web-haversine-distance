@@ -34,7 +34,6 @@ function App() {
 
   useEffect(() => {
     window.addEventListener("resize", () => {
-      console.log("resize", window.innerWidth);
       setScreenResolution(window.innerWidth);
     });
   }, []);

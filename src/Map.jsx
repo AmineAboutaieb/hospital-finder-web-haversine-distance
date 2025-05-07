@@ -39,9 +39,9 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
   const [target, setTarget] = useState(null);
   const [hospitalsToShow, setHospitalsToShow] = useState([]);
   const [menuFocused, setMenuFocused] = useState(false);
+  const [closestHospitalName, setClosestHospitalName] = useState("");
 
   useEffect(() => {
-    console.log("menuFocused", menuFocused);
   }, [menuFocused]);
 
   const getGeoPosition = async () => {
@@ -65,11 +65,9 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
   const getPositionAndCalcHospitalsDistanceOnMount = async () => {
     try {
       let pos = await getGeoPosition();
-      console.log(pos);
       let posData = { position: [pos?.latitude, pos?.longitude] };
       setTarget(posData);
       if (posData?.position?.length > 0 && hospitals?.length > 0) {
-        console.log(posData, hospitals);
 
         let sortedHospitals = compareHospitalsWithMe(posData, hospitals);
         let closestHospital = sortedHospitals[0];
@@ -79,9 +77,9 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
         setChosenHospitalDistance(distance);
         setOpen(true);
+        setClosestHospitalName(closestHospital?.name);
       }
     } catch (e) {
-      console.log(e);
       alert("Veuillez Activer la Localisation et rafraichir la page !");
     }
   };
@@ -89,18 +87,15 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
   const getPositionAndCalcHospitalsDistanceOnSearchClick = async (hsp) => {
     try {
       let pos = await getGeoPosition();
-      console.log(pos);
       let posData = { position: [pos?.latitude, pos?.longitude] };
       setTarget(posData);
       if (posData?.position?.length > 0) {
-        console.log("fit two points", pos?.latitude, pos?.longitude, hsp);
         setHospitalsToShow([hsp]);
         fitTwoPoints(pos?.latitude, pos?.longitude, hsp.lat, hsp.long);
         let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
         setChosenHospitalDistance(distance);
       }
     } catch (e) {
-      console.log(e);
       alert("Veuillez Activer la Localisation et rafraichir la page !");
     }
   };
@@ -118,7 +113,6 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
 
   const fitTwoPoints = (lat1, long1, lat2, long2) => {
     const map = mapRef.current;
-    console.log("from fitTwoPoints", map);
     if (map) {
       const bounds = L.latLngBounds([
         [lat1, long1],
@@ -160,11 +154,9 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
     if (map) {
       // Attach event listeners
       map.on("click", () => {
-        console.log("removing focus");
         setMenuFocused(false);
       });
       map.on("dragstart", () => {
-        console.log("removing focus");
         setMenuFocused(false);
       });
 
@@ -213,6 +205,7 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         getPositionAndCalcHospitalsDistanceOnSearchClick={getPositionAndCalcHospitalsDistanceOnSearchClick}
         menuFocused={menuFocused}
         setMenuFocused={setMenuFocused}
+        closestHospitalName={closestHospitalName}
       />
       <SidePanel isOpen={isOpen} setOpen={setOpen} chosenHospital={chosenHospital} setChosenHospital={setChosenHospital} chosenHospitalDistance={chosenHospitalDistance} />
     </MapContainer>

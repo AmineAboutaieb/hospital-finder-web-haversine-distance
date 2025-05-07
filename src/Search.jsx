@@ -3,8 +3,8 @@ import { CgSearchLoading } from "react-icons/cg";
 import { TfiFaceSad } from "react-icons/tfi";
 import L from "leaflet";
 
-function Search({ hospitals, setOpen, chosenHospital, setChosenHospital, getPositionAndCalcHospitalsDistanceOnSearchClick, menuFocused, setMenuFocused }) {
-  const [search, setSearch] = useState("");
+function Search({ hospitals, setOpen, chosenHospital, setChosenHospital, getPositionAndCalcHospitalsDistanceOnSearchClick, menuFocused, setMenuFocused, closestHospitalName }) {
+  const [search, setSearch] = useState(closestHospitalName);
   const [searchHospitals, setSearchedHospitals] = useState([]);
 
   const searchHandler = (e) => {
@@ -26,6 +26,9 @@ function Search({ hospitals, setOpen, chosenHospital, setChosenHospital, getPosi
       L.DomEvent.disableClickPropagation(searchRef.current);
     }
   }, []);
+  useEffect(() => {
+    setSearch(closestHospitalName);
+  }, [closestHospitalName]);
   return (
     <>
       <div
@@ -82,6 +85,7 @@ function Search({ hospitals, setOpen, chosenHospital, setChosenHospital, getPosi
               style={{ borderBottom: "1px solid #ccc", paddingBottom: "0.2rem", marginBottom: "0.5rem", cursor: "pointer" }}
               onClick={() => {
                 setChosenHospital(hsp);
+                setSearch(hsp?.name);
                 setOpen(true);
                 getPositionAndCalcHospitalsDistanceOnSearchClick(hsp);
               }}
