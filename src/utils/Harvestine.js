@@ -36,4 +36,15 @@ export default {
 
     return R * c;
   },
+  graphhopperDirections: async (lat1, long1, lat2, long2) => {
+    try {
+      let response = await fetch(`http://188.245.148.47:8989/route?point=${lat1},${long1}&point=${lat2},${long2}&profile=foot&locale=fr`);
+      if (response.ok) {
+        let data = await response?.json();
+        return { status: 200, data };
+      }
+    } catch (e) {
+      return { status: 400 };
+    }
+  },
 };

@@ -23,8 +23,8 @@ function App() {
     {
       id: 3,
       name: "Hôpital militaire",
-      lat: 33.9687117,
-      long: -6.873531,
+      lat: 33.9697284,
+      long: -6.8703992,
     },
   ]);
   const [chosenHospital, setChosenHospital] = useState(null);

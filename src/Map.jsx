@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { MapContainer, Marker, TileLayer, Popup, useMap, LayerGroup, Circle } from "react-leaflet";
+import { MapContainer, Marker, TileLayer, Popup, useMap, LayerGroup, Circle, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { MdGpsFixed } from "react-icons/md";
 
@@ -10,6 +10,7 @@ import { PiGpsFill, PiGpsFixDuotone } from "react-icons/pi";
 import HarvestineUtils from "./utils/Harvestine";
 import Search from "./Search";
 import SidePanel from "./SidePanel";
+import polyline from "@mapbox/polyline";
 
 // Convert the React icon to static HTML
 const hospitalIconHTML = renderToStaticMarkup(<FaHospital style={{ color: "green", fontSize: "26px" }} />);
@@ -22,7 +23,7 @@ const hospitalIcon = L.divIcon({
 });
 
 // Convert the React icon to static HTML
-const MeIconHTML = renderToStaticMarkup(<PiGpsFill style={{ color: "#2323FF", fontSize: "26px" }} />);
+const MeIconHTML = renderToStaticMarkup(<PiGpsFill style={{ color: "#0b57d0", fontSize: "26px" }} />);
 
 const MeIcon = L.divIcon({
   html: MeIconHTML,
@@ -40,9 +41,10 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
   const [hospitalsToShow, setHospitalsToShow] = useState([]);
   const [menuFocused, setMenuFocused] = useState(false);
   const [closestHospitalName, setClosestHospitalName] = useState("");
+  const [decodedPolylineRoute, setDecodedPolylineRoute] = useState(null);
+  const [showRoute, setShowRoute] = useState(false);
 
-  useEffect(() => {
-  }, [menuFocused]);
+  useEffect(() => {}, [menuFocused]);
 
   const getGeoPosition = async () => {
     return new Promise((resolve, reject) => {
@@ -68,14 +70,22 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
       let posData = { position: [pos?.latitude, pos?.longitude] };
       setTarget(posData);
       if (posData?.position?.length > 0 && hospitals?.length > 0) {
-
         let sortedHospitals = compareHospitalsWithMe(posData, hospitals);
         let closestHospital = sortedHospitals[0];
         setHospitalsToShow([closestHospital]);
         fitTwoPoints(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
         setChosenHospital(closestHospital);
-        let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
-        setChosenHospitalDistance(distance);
+        // let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
+        // TEST DIRECTIONS START
+        let directions = await HarvestineUtils.graphhopperDirections(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
+        console.log("directions ->", directions, directions?.data?.paths?.[0]?.points);
+
+        setDecodedPolylineRoute(polyline.decode(directions?.data?.paths?.[0]?.points));
+        let metersDistance = directions?.data?.paths?.[0]?.distance;
+        let kmsDistance = directions?.data?.paths?.[0]?.distance / 1000;
+        setChosenHospitalDistance(kmsDistance);
+        // TEST DIRECTIONS STOP
+        // setChosenHospitalDistance(distance);
         setOpen(true);
         setClosestHospitalName(closestHospital?.name);
       }
@@ -92,8 +102,17 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
       if (posData?.position?.length > 0) {
         setHospitalsToShow([hsp]);
         fitTwoPoints(pos?.latitude, pos?.longitude, hsp.lat, hsp.long);
-        let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
-        setChosenHospitalDistance(distance);
+        // let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
+        // TEST DIRECTIONS START
+        let directions = await HarvestineUtils.graphhopperDirections(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
+        console.log("directions ->", directions, directions?.data?.paths?.[0]?.points);
+        setDecodedPolylineRoute(null);
+        setDecodedPolylineRoute(polyline.decode(directions?.data?.paths?.[0]?.points));
+        let metersDistance = directions?.data?.paths?.[0]?.distance;
+        let kmsDistance = directions?.data?.paths?.[0]?.distance / 1000;
+        setChosenHospitalDistance(kmsDistance);
+        // TEST DIRECTIONS STOP
+        // setChosenHospitalDistance(distance);
       }
     } catch (e) {
       alert("Veuillez Activer la Localisation et rafraichir la page !");
@@ -122,32 +141,39 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         padding: [30, 30], // optional padding
         animate: true, // smooth transition
       });
-      map.eachLayer((layer) => {
-        if (layer instanceof L.Polyline) {
-          map.removeLayer(layer);
-        }
-      });
+      // map.eachLayer((layer) => {
+      //   if (layer instanceof L.Polyline) {
+      //     map.removeLayer(layer);
+      //   }
+      // });
 
-      // Create the line using Leaflet's native polyline method
-      const line = L.polyline(
-        [
-          [lat1, long1],
-          [lat2, long2],
-        ],
-        {
-          color: "red",
-          weight: 4,
-        }
-      );
+      // // Create the line using Leaflet's native polyline method
+      // const line = L.polyline(
+      //   [
+      //     [lat1, long1],
+      //     [lat2, long2],
+      //   ],
+      //   {
+      //     color: "red",
+      //     weight: 4,
+      //   }
+      // );
 
-      // Add the line to the map
-      line.addTo(map);
+      // // Add the line to the map
+      // line.addTo(map);
     }
   };
 
   useEffect(() => {
     getPositionAndCalcHospitalsDistanceOnMount();
   }, []);
+
+  useEffect(() => {
+    setShowRoute(false);
+    setTimeout(() => {
+      setShowRoute(true);
+    }, 500);
+  }, [decodedPolylineRoute]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -208,6 +234,7 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         closestHospitalName={closestHospitalName}
       />
       <SidePanel isOpen={isOpen} setOpen={setOpen} chosenHospital={chosenHospital} setChosenHospital={setChosenHospital} chosenHospitalDistance={chosenHospitalDistance} />
+      {decodedPolylineRoute && showRoute && <Polyline positions={decodedPolylineRoute.map(([lat, lng]) => [lat, lng])} color="#0b57d0" weight={3} />}
     </MapContainer>
   );
 };
