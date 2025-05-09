@@ -220,7 +220,17 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
       {hospitalsToShow?.length > 0 &&
         hospitalsToShow?.map((hsp) => {
           return (
-            <Marker key={hsp?.id} position={[hsp?.lat, hsp?.long]} icon={hospitalIcon}>
+            // setOpen
+            <Marker
+              key={hsp?.id}
+              position={[hsp?.lat, hsp?.long]}
+              icon={hospitalIcon}
+              eventHandlers={{
+                click: () => {
+                  setOpen(true);
+                },
+              }}
+            >
               <Popup>{hsp?.name}</Popup>
             </Marker>
           );
