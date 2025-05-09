@@ -3,8 +3,11 @@ import { IoCloseOutline } from "react-icons/io5";
 import ResolutionContext from "./ResolutionContext";
 import { RiHospitalLine } from "react-icons/ri";
 import L from "leaflet";
+import { LiaLongArrowAltUpSolid } from "react-icons/lia";
+import { MdOutlineTurnLeft, MdOutlineTurnRight } from "react-icons/md";
+import { FaLongArrowAltUp } from "react-icons/fa";
 
-function SidePanel({ isOpen, setOpen, chosenHospital, setChosenHospital, chosenHospitalDistance }) {
+function SidePanel({ isOpen, setOpen, chosenHospital, setChosenHospital, chosenHospitalDistance, instructions }) {
   const { screenResolution, setScreenResolution } = useContext(ResolutionContext);
   const panelRef = useRef(null);
   useEffect(() => {
@@ -26,8 +29,9 @@ function SidePanel({ isOpen, setOpen, chosenHospital, setChosenHospital, chosenH
         right: 0,
         zIndex: 999,
         boxShadow: isOpen ? "0 2px 8px rgba(0, 0, 0, 0.1)" : "none",
-        overflow: "hidden",
         pointerEvents: "auto", // Crucial for capturing mouse events
+        // height: "100vh",
+        // overflow: "auto"
       }}
     >
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -44,6 +48,31 @@ function SidePanel({ isOpen, setOpen, chosenHospital, setChosenHospital, chosenH
           </p>
         </div>
         //
+      )}
+      {instructions?.length > 0 && (
+        <div style={{ height: "75vh", overflow: "auto" }}>
+          {instructions?.map((instruction) => {
+            return (
+              <div style={{ padding: "0.5rem 0", paddingLeft: "1rem", borderBottom: "1px solid #ccc" }}>
+                <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", columnGap: "1rem" }}>
+                  <div style={{ backgroundColor: "#81c452", padding: "0.2rem", borderRadius: "0.6rem" }}>
+                    {instruction?.sign === 0 ? (
+                      <FaLongArrowAltUp style={{ color: "#fff" }} size={40} />
+                    ) : instruction?.sign === 2 ? (
+                      <MdOutlineTurnRight style={{ color: "#fff" }} size={40} />
+                    ) : (
+                      <MdOutlineTurnLeft style={{ color: "#fff" }} size={40} />
+                    )}
+                  </div>
+                  <p style={{ fontSize: "14px" }}>{instruction?.text}</p>
+                </div>
+                <div>
+                  <p style={{color: "gray", marginTop: "0.5rem"}}>{instruction?.distance?.toFixed(2)} mètres</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

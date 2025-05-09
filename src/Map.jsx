@@ -43,6 +43,7 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
   const [closestHospitalName, setClosestHospitalName] = useState("");
   const [decodedPolylineRoute, setDecodedPolylineRoute] = useState(null);
   const [showRoute, setShowRoute] = useState(false);
+  const [instructions, setInstructions] = useState([]);
 
   useEffect(() => {}, [menuFocused]);
 
@@ -84,6 +85,7 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         let metersDistance = directions?.data?.paths?.[0]?.distance;
         let kmsDistance = directions?.data?.paths?.[0]?.distance / 1000;
         setChosenHospitalDistance(kmsDistance);
+        setInstructions(directions?.data?.paths?.[0]?.instructions);
         // TEST DIRECTIONS STOP
         // setChosenHospitalDistance(distance);
         setOpen(true);
@@ -111,6 +113,7 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         let metersDistance = directions?.data?.paths?.[0]?.distance;
         let kmsDistance = directions?.data?.paths?.[0]?.distance / 1000;
         setChosenHospitalDistance(kmsDistance);
+        setInstructions(directions?.data?.paths?.[0]?.instructions);
         // TEST DIRECTIONS STOP
         // setChosenHospitalDistance(distance);
       }
@@ -233,7 +236,14 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         setMenuFocused={setMenuFocused}
         closestHospitalName={closestHospitalName}
       />
-      <SidePanel isOpen={isOpen} setOpen={setOpen} chosenHospital={chosenHospital} setChosenHospital={setChosenHospital} chosenHospitalDistance={chosenHospitalDistance} />
+      <SidePanel
+        isOpen={isOpen}
+        setOpen={setOpen}
+        chosenHospital={chosenHospital}
+        setChosenHospital={setChosenHospital}
+        chosenHospitalDistance={chosenHospitalDistance}
+        instructions={instructions}
+      />
       {decodedPolylineRoute && showRoute && <Polyline positions={decodedPolylineRoute.map(([lat, lng]) => [lat, lng])} color="#0b57d0" weight={3} />}
     </MapContainer>
   );
