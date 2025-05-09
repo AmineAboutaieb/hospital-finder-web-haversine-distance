@@ -70,7 +70,7 @@ function Search({ hospitals, setOpen, chosenHospital, setChosenHospital, getPosi
           position: "absolute",
           top: "8%",
           left: "15%",
-          zIndex: 999,
+          zIndex: 800,
           backgroundColor: "#fff",
           borderRadius: "10px",
           boxShadow: isSearchValid && menuFocused ? "0 2px 8px rgba(0, 0, 0, 0.1)" : "none",

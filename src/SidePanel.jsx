@@ -27,7 +27,7 @@ function SidePanel({ isOpen, setOpen, chosenHospital, setChosenHospital, chosenH
         position: "fixed",
         top: 0,
         right: 0,
-        zIndex: 999,
+        zIndex: 800,
         boxShadow: isOpen ? "0 2px 8px rgba(0, 0, 0, 0.1)" : "none",
         pointerEvents: "auto", // Crucial for capturing mouse events
         // height: "100vh",

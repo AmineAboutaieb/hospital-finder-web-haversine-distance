@@ -1,3 +1,15 @@
-.hospitalItem:hover{
-    background-color: #ccc;
+.hospitalItem:hover {
+  background-color: #ccc;
+}
+
+@keyframes logoAnimation {
+  0% {
+    width: 200px;
+  }
+  50% {
+    width: 150px;
+  }
+  100% {
+    width: 200px;
+  }
 }
