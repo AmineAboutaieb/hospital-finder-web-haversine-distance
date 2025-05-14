@@ -20,7 +20,7 @@ export default {
         distance: haversineDistance(pointA.lat, pointA.long, point.lat, point.long),
       }))
       .sort((a, b) => a.distance - b.distance)
-      .map((obj) => obj.point);
+      .map((obj) => ({ ...obj.point, distance: obj.distance }));
   },
   harvesineDistance: (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Earth radius in kilometers. Use 3956 for miles.
@@ -38,7 +38,7 @@ export default {
   },
   graphhopperDirections: async (lat1, long1, lat2, long2) => {
     try {
-      let response = await fetch(`https://graphhopper.frmjj-app.ma/?point=${lat1},${long1}&point=${lat2},${long2}&profile=foot&locale=fr`);
+      let response = await fetch(`https://graphhopper.frmjj-app.ma/?point=${lat1},${long1}&point=${lat2},${long2}&profile=car&locale=fr&snap-preferences=true&maximum-snap-distance=90000&debug=true`);
       if (response.ok) {
         let data = await response?.json();
         return { status: 200, data };

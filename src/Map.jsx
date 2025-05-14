@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { MapContainer, Marker, TileLayer, Popup, useMap, LayerGroup, Circle, Polyline } from "react-leaflet";
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { MapContainer, Marker, TileLayer, Popup, LayerGroup, Circle, Polyline, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { MdGpsFixed } from "react-icons/md";
-
 import { FaHospital } from "react-icons/fa";
 import { renderToStaticMarkup } from "react-dom/server";
 import L from "leaflet";
@@ -11,19 +10,40 @@ import HarvestineUtils from "./utils/Harvestine";
 import Search from "./Search";
 import SidePanel from "./SidePanel";
 import polyline from "@mapbox/polyline";
+import CurrentUserPositionContext from "./CurrentUserPositionContext";
+import provinces from "./assets/provinces.json";
+import MapSheetOptionsContext from "./MapSheetOptionsContext";
+import MeAndTarget from "./MeAndTarget";
+import SidePanelOptionsContext from "./SidePanelOptionsContext";
+import { GiPositionMarker } from "react-icons/gi";
 
 // Convert the React icon to static HTML
-const hospitalIconHTML = renderToStaticMarkup(<FaHospital style={{ color: "green", fontSize: "26px" }} />);
+const hospitalIconHTML = renderToStaticMarkup(
+  <div
+    style={{
+      backgroundColor: "#ea4335",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      borderRadius: "35px",
+      width: "35px",
+      height: "35px",
+      border: "1px solid #fff",
+    }}
+  >
+    <FaHospital fontSize={18} style={{ color: "#fff", padding: "0", margin: "0", width: "100%" }} />
+  </div>
+);
 
 const hospitalIcon = L.divIcon({
   html: hospitalIconHTML,
   className: "", // No default Leaflet styles
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
+  // iconSize: [24, 24],
+  // iconAnchor: [12, 12],
 });
 
 // Convert the React icon to static HTML
-const MeIconHTML = renderToStaticMarkup(<PiGpsFill style={{ color: "#0b57d0", fontSize: "26px" }} />);
+const MeIconHTML = renderToStaticMarkup(<GiPositionMarker style={{ color: "#0b57d0", fontSize: "26px" }} />);
 
 const MeIcon = L.divIcon({
   html: MeIconHTML,
@@ -32,193 +52,133 @@ const MeIcon = L.divIcon({
   iconAnchor: [17, 17],
 });
 
-const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, chosenHospitalDistance, setChosenHospitalDistance }) => {
-  const mapRef = useRef(null);
+const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, chosenHospitalDistance, setChosenHospitalDistance, toggleSheet, mapRef, setMapRef }) => {
+  // const mapRef = useRef(null);
   const latitude = 33.9693338;
   const longitude = -6.9396652;
 
-  const [target, setTarget] = useState(null);
-  const [hospitalsToShow, setHospitalsToShow] = useState([]);
-  const [menuFocused, setMenuFocused] = useState(false);
-  const [closestHospitalName, setClosestHospitalName] = useState("");
-  const [decodedPolylineRoute, setDecodedPolylineRoute] = useState(null);
-  const [showRoute, setShowRoute] = useState(false);
   const [instructions, setInstructions] = useState([]);
+  const { currentUserPosition } = useContext(CurrentUserPositionContext);
 
-  useEffect(() => {}, [menuFocused]);
+  const { mapSheetOptions, setMapSheetOptions } = useContext(MapSheetOptionsContext);
+  const { sidePanelOptions, setSidePanelOptions } = useContext(SidePanelOptionsContext);
+  const [showGeoJson, setShowGeoJson] = useState(false);
 
-  const getGeoPosition = async () => {
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve(position?.coords);
-        },
-        (error) => {
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true, // Try to get GPS-level accuracy if available
-          timeout: 10000,
-          maximumAge: 0,
-        }
-      );
-    });
-  };
-
-  const getPositionAndCalcHospitalsDistanceOnMount = async () => {
-    try {
-      let pos = await getGeoPosition();
-      let posData = { position: [pos?.latitude, pos?.longitude] };
-      setTarget(posData);
-      if (posData?.position?.length > 0 && hospitals?.length > 0) {
-        let sortedHospitals = compareHospitalsWithMe(posData, hospitals);
-        let closestHospital = sortedHospitals[0];
-        setHospitalsToShow([closestHospital]);
-        fitTwoPoints(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
-        setChosenHospital(closestHospital);
-        // let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
-        // TEST DIRECTIONS START
-        let directions = await HarvestineUtils.graphhopperDirections(pos?.latitude, pos?.longitude, closestHospital?.lat, closestHospital?.long);
-        console.log("directions ->", directions, directions?.data?.paths?.[0]?.points);
-
-        setDecodedPolylineRoute(polyline.decode(directions?.data?.paths?.[0]?.points));
-        let metersDistance = directions?.data?.paths?.[0]?.distance;
-        let kmsDistance = directions?.data?.paths?.[0]?.distance / 1000;
-        setChosenHospitalDistance(kmsDistance);
-        setInstructions(directions?.data?.paths?.[0]?.instructions);
-        // TEST DIRECTIONS STOP
-        // setChosenHospitalDistance(distance);
-        setOpen(true);
-        setClosestHospitalName(closestHospital?.name);
-      }
-    } catch (e) {
-      alert("Veuillez Activer la Localisation et rafraichir la page !");
+  const panToPosition = (lat, long) => {
+    // map.panTo([lat, lng], { animate: true, duration: 1 });
+    if (mapRef) {
+      mapRef.panTo([lat, long], { animate: true, duratin: 1 });
     }
   };
 
-  const getPositionAndCalcHospitalsDistanceOnSearchClick = async (hsp) => {
-    try {
-      let pos = await getGeoPosition();
-      let posData = { position: [pos?.latitude, pos?.longitude] };
-      setTarget(posData);
-      if (posData?.position?.length > 0) {
-        setHospitalsToShow([hsp]);
-        fitTwoPoints(pos?.latitude, pos?.longitude, hsp.lat, hsp.long);
-        // let distance = HarvestineUtils.harvesineDistance(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
-        // TEST DIRECTIONS START
-        let directions = await HarvestineUtils.graphhopperDirections(pos?.latitude, pos?.longitude, hsp?.lat, hsp?.long);
-        console.log("directions ->", directions, directions?.data?.paths?.[0]?.points);
-        setDecodedPolylineRoute(null);
-        setDecodedPolylineRoute(polyline.decode(directions?.data?.paths?.[0]?.points));
-        let metersDistance = directions?.data?.paths?.[0]?.distance;
-        let kmsDistance = directions?.data?.paths?.[0]?.distance / 1000;
-        setChosenHospitalDistance(kmsDistance);
-        setInstructions(directions?.data?.paths?.[0]?.instructions);
-        // TEST DIRECTIONS STOP
-        // setChosenHospitalDistance(distance);
-      }
-    } catch (e) {
-      alert("Veuillez Activer la Localisation et rafraichir la page !");
+  const getDirectionsHandler = async (hsp) => {
+    let directions = await HarvestineUtils.graphhopperDirections(currentUserPosition?.latitude, currentUserPosition?.longitude, hsp?.lat, hsp?.long);
+    let points = directions?.data?.paths?.[0]?.points;
+    let distance = directions?.data?.paths?.[0]?.distance;
+    let instructions = directions?.data?.paths?.[0]?.instructions;
+    // console.log(points)
+    if (directions && points) {
+      setMapSheetOptions((prevState) => {
+        return { ...prevState, routePoints: points, routeHospital: hsp, routeHospitalDistance: distance };
+      });
+      // toggleSheet();
     }
+
+    if (instructions) {
+      setSidePanelOptions((prevState) => {
+        return { ...prevState, instructions: instructions };
+      });
+    }
+    console.log("got here");
   };
 
-  const compareHospitalsWithMe = (mePos, hospitalsPos) => {
-    let res = HarvestineUtils.sortByDistance({ lat: mePos?.position?.[0], long: mePos?.position?.[1] }, hospitalsPos);
-    return res;
-  };
-  const panAndZoom = (lat, long, zoom) => {
-    const map = mapRef.current;
-    if (map) {
-      map.setView([lat, long], zoom); // or map.flyTo(...)
-    }
-  };
+  // useEffect(() => {
+  //   console.log("MAP SHEET ROUTE POINTS CHANGED");
+  //   if (mapSheetOptions?.routePoints) {
+  //     fitTwoPoints(currentUserPosition?.latitude, currentUserPosition?.longitude, mapSheetOptions?.routeHospital?.lat, mapSheetOptions?.routeHospital?.long);
+  //   }
+  // }, [mapSheetOptions?.routePoints]);
 
   const fitTwoPoints = (lat1, long1, lat2, long2) => {
-    const map = mapRef.current;
-    if (map) {
+    // console.log("FIT TWO POINTS", lat1, long1, lat2, long2);
+    if (mapRef) {
       const bounds = L.latLngBounds([
         [lat1, long1],
         [lat2, long2],
       ]);
-      map.fitBounds(bounds, {
-        padding: [30, 30], // optional padding
+      mapRef.fitBounds(bounds, {
+        // padding: [30, 30], // optional padding
         animate: true, // smooth transition
       });
-      // map.eachLayer((layer) => {
-      //   if (layer instanceof L.Polyline) {
-      //     map.removeLayer(layer);
-      //   }
-      // });
-
-      // // Create the line using Leaflet's native polyline method
-      // const line = L.polyline(
-      //   [
-      //     [lat1, long1],
-      //     [lat2, long2],
-      //   ],
-      //   {
-      //     color: "red",
-      //     weight: 4,
-      //   }
-      // );
-
-      // // Add the line to the map
-      // line.addTo(map);
     }
   };
 
   useEffect(() => {
-    getPositionAndCalcHospitalsDistanceOnMount();
-  }, []);
-
-  useEffect(() => {
-    setShowRoute(false);
+    setShowGeoJson(false);
     setTimeout(() => {
-      setShowRoute(true);
-    }, 500);
-  }, [decodedPolylineRoute]);
+      setShowGeoJson(true);
+      if (mapRef) {
+        const layer = new L.GeoJSON(mapSheetOptions?.province);
+        const bounds = layer.getBounds();
+        mapRef?.fitBounds(bounds, { maxZoom: 20 });
+      }
+    }, 10);
+  }, [mapSheetOptions?.province]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (map) {
-      // Attach event listeners
-      map.on("click", () => {
-        setMenuFocused(false);
-      });
-      map.on("dragstart", () => {
-        setMenuFocused(false);
-      });
-
-      // Cleanup on unmount
-      return () => {
-        map.off("click");
-        map.off("dragstart");
-      };
+    if (mapSheetOptions?.routeHospital) {
+      getDirectionsHandler(mapSheetOptions?.routeHospital);
     }
-  }, [mapRef.current]); // Dependency to ensure it runs when mapRef updates
+  }, [currentUserPosition]);
 
   return (
     <MapContainer
+      ref={setMapRef}
       center={[latitude, longitude]}
-      zoom={12}
-      ref={mapRef}
+      zoom={5}
+      whenCreated={setMapRef}
       style={{ height: "100vh", overflow: "hidden" }}
-      maxBounds={[
-        [33.187949, -7.117014],
-        [35.010163, -5.304844],
-      ]}
+      // maxBounds={[
+      //   [33.187949, -7.117014],
+      //   [35.010163, -5.304844],
+      // ]}
       maxBoundsViscosity={1.0}
     >
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" minZoom={10} />
+      <TileLayer url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png" />
 
-      {target && (
-        <Marker position={target?.position} icon={MeIcon}>
+      {mapSheetOptions?.province && showGeoJson && (
+        <GeoJSON
+          style={() => ({
+            color: "green", // Line color
+            weight: 2, // Line width
+            opacity: 0.8, // Line opacity
+            fillColor: "green", // Fill color
+            fillOpacity: 0.2, // Fill opacity
+          })}
+          // attribution="&copy; credits due..."
+          data={mapSheetOptions?.province}
+        />
+      )}
+
+      {/* {mapSheetOptions?.routeHospital && (
+        <Circle
+          center={[mapSheetOptions?.routeHospital?.lat, mapSheetOptions?.routeHospital?.long]}
+          radius={200} // Radius in meters
+          pathOptions={{ color: "#81c452", fillColor: "#81c452", fillOpacity: 0.5 }}
+        />
+      )} */}
+
+      {/* <GeoJSON attribution="&copy; credits due..." data={provinces} /> */}
+
+      {currentUserPosition && currentUserPosition?.latitude && currentUserPosition?.longitude && (
+        <Marker icon={MeIcon} position={[currentUserPosition?.latitude, currentUserPosition?.longitude]}>
           <Popup>Moi</Popup>
         </Marker>
       )}
 
-      {hospitalsToShow?.length > 0 &&
-        hospitalsToShow?.map((hsp) => {
+      {mapSheetOptions?.hospitals &&
+        mapSheetOptions?.hospitals?.length > 0 &&
+        mapSheetOptions?.hospitals?.map((hsp) => {
           return (
             // setOpen
             <Marker
@@ -227,7 +187,8 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
               icon={hospitalIcon}
               eventHandlers={{
                 click: () => {
-                  setOpen(true);
+                  getDirectionsHandler(hsp);
+                  fitTwoPoints(currentUserPosition?.latitude, currentUserPosition?.longitude, hsp?.lat, hsp?.long);
                 },
               }}
             >
@@ -236,16 +197,6 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
           );
         })}
 
-      <Search
-        hospitals={hospitals}
-        setOpen={setOpen}
-        chosenHospital={chosenHospital}
-        setChosenHospital={setChosenHospital}
-        getPositionAndCalcHospitalsDistanceOnSearchClick={getPositionAndCalcHospitalsDistanceOnSearchClick}
-        menuFocused={menuFocused}
-        setMenuFocused={setMenuFocused}
-        closestHospitalName={closestHospitalName}
-      />
       <SidePanel
         isOpen={isOpen}
         setOpen={setOpen}
@@ -254,7 +205,8 @@ const Map = ({ hospitals, isOpen, setOpen, chosenHospital, setChosenHospital, ch
         chosenHospitalDistance={chosenHospitalDistance}
         instructions={instructions}
       />
-      {decodedPolylineRoute && showRoute && <Polyline positions={decodedPolylineRoute.map(([lat, lng]) => [lat, lng])} color="#0b57d0" weight={3} />}
+      {mapSheetOptions?.routePoints && <Polyline positions={polyline.decode(mapSheetOptions?.routePoints).map(([lat, lng]) => [lat, lng])} color="blue" weight={3} />}
+      <MeAndTarget panToPosition={panToPosition} />
     </MapContainer>
   );
 };
